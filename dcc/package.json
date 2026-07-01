@@ -1,0 +1,130 @@
+{
+  "name": "dead-code-confidence-checker",
+  "displayName": "Dead Code Confidence Checker",
+  "description": "ML-powered dead code detection with confidence scores and explanations",
+  "version": "0.2.0",
+  "publisher": "your-name",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:python",
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onLanguage:javascriptreact"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "dcc.analyzeFile",
+        "title": "Dead Code: Analyze Current File",
+        "icon": "$(search)"
+      },
+      {
+        "command": "dcc.openDashboard",
+        "title": "Dead Code: Open Dashboard",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "dcc.clearDecorations",
+        "title": "Dead Code: Clear All Highlights"
+      },
+      {
+        "command": "dcc.analyzeWorkspace",
+        "title": "Dead Code: Analyze Entire Workspace",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "dcc.openDashboardForSelection",
+        "title": "Dead Code: Open Dashboard for Selection",
+        "icon": "$(split-horizontal)"
+      },
+      {
+        "command": "dcc.removeDeadCode",
+        "title": "Dead Code: Remove Dead Code at Cursor"
+      },
+      {
+        "command": "dcc.showHistory",
+        "title": "Dead Code: Show Analysis History"
+      },
+      {
+        "command": "dcc.openChat",
+        "title": "Dead Code: Open Chat Assistant",
+        "icon": "$(comment-discussion)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "dcc.analyzeFile",
+          "when": "resourceLangId =~ /python|javascript|typescript/",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "dcc.openDashboardForSelection",
+        "key": "ctrl+alt+d",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "dcc.openChat",
+        "key": "ctrl+alt+c",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "Dead Code Confidence Checker",
+      "properties": {
+        "dcc.serverUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:7331",
+          "description": "ML analysis server URL (used in Phase 2)"
+        },
+        "dcc.analyzeOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto-analyze file on save"
+        },
+        "dcc.minConfidenceThreshold": {
+          "type": "number",
+          "default": 0.3,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Minimum confidence to show a decoration (0–1)"
+        },
+        "dcc.showInlineBadges": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show confidence % badges inline in editor"
+        },
+        "dcc.useMockData": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use mock analyzer (Phase 1). Set false to use real ML analyzer."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "postcompile": "copy src\\dashboard.html out\\dashboard.html",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+  "dependencies": {
+    "axios": "^1.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0"
+  }
+}

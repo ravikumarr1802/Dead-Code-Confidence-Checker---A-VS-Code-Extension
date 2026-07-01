@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Dead Code Dashboard</title>
+    <style>
+      :root {
+        --bg: #0d1117;
+        --panel: #151b23;
+        --panel-2: #1c2430;
+        --border: #293244;
+        --text: #e6edf3;
+        --muted: #97a6ba;
+        --accent: #4db6ff;
+        --danger: #ff5d73;
+        --warning: #ffb347;
+        --review: #8fa3ff;
+        --safe: #4fd1a5;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font: 13px/1.5 "Segoe UI", sans-serif;
+        color: var(--text);
+        background: linear-gradient(180deg, #091018, var(--bg));
+      }
+      .shell { max-width: 1200px; margin: 0 auto; padding: 20px; }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .title { font-size: 20px; font-weight: 700; }
+      .subtitle { color: var(--muted); font-size: 12px; margin-top: 4px; }
+      .actions, .tabs, .filters { display: flex; gap: 8px; flex-wrap: wrap; }
+      button {
+        border: 1px solid var(--border);
+        background: var(--panel);
+        color: var(--text);
+        border-radius: 10px;
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+      button.primary { background: var(--accent); color: #04111d; border-color: var(--accent); font-weight: 700; }
+      button.active { outline: 2px solid var(--accent); }
+      .panel {
+        background: rgba(21, 27, 35, 0.92);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+      .hidden { display: none; }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .stat { background: var(--panel-2); border-radius: 12px; padding: 14px; border: 1px solid var(--border); }
+      .stat .label { color: var(--muted); font-size: 12px; }
+      .stat .value { font-size: 28px; font-weight: 700; margin-top: 8px; }
+      .symbol-list { display: grid; gap: 12px; }
+      .symbol {
+        border: 1px solid var(--border);
+        border-left: 4px solid var(--accent);
+        background: var(--panel-2);
+        border-radius: 14px;
+        padding: 14px;
+      }
+      .symbol.danger { border-left-color: var(--danger); }
+      .symbol.warning { border-left-color: var(--warning); }
+      .symbol.review { border-left-color: var(--review); }
+      .symbol.safe { border-left-color: var(--safe); }
+      .symbol-head {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .symbol-name { font-weight: 700; font-size: 15px; }
+      .pill {
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 11px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+      }
+      .summary { margin: 10px 0; color: #d4deea; }
+      .meta { color: var(--muted); font-size: 12px; }
+      .bar {
+        height: 8px;
+        background: #0a0f15;
+        border-radius: 999px;
+        overflow: hidden;
+        margin: 10px 0;
+      }
+      .fill { height: 100%; background: var(--accent); }
+      .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .detail-box {
+        background: #10161f;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+      }
+      .detail-box h4 { margin: 0 0 8px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+      .detail-box ul { margin: 0; padding-left: 18px; }
+      .detail-box li { margin: 4px 0; }
+      .history-item, .chat-bubble {
+        background: var(--panel-2);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px;
+        margin-bottom: 10px;
+      }
+      .chat-bubble.user { border-color: var(--accent); }
+      .chat-input-row { display: flex; gap: 8px; margin-top: 12px; }
+      input {
+        flex: 1;
+        background: #0f141c;
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: 10px;
+        padding: 10px 12px;
+      }
+      a.linklike { color: var(--accent); cursor: pointer; text-decoration: none; }
+      .empty { color: var(--muted); text-align: center; padding: 30px 10px; }
+      .mono { font-family: Consolas, monospace; }
+      @media (max-width: 640px) {
+        .header { flex-direction: column; align-items: flex-start; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="header">
+        <div>
+          <div class="title">Dead Code Dashboard</div>
+          <div id="headerSub" class="subtitle">Waiting for analysis</div>
+        </div>
+        <div class="actions">
+          <button class="primary" onclick="analyzeCurrent()">Analyze File</button>
+          <button onclick="analyzeWorkspace()">Analyze Workspace</button>
+        </div>
+      </div>
+
+      <div class="tabs panel">
+        <button id="tab-analysis" class="active" onclick="switchTab('analysis')">Analysis</button>
+        <button id="tab-history" onclick="switchTab('history')">History</button>
+        <button id="tab-chat" onclick="switchTab('chat')">Chat</button>
+      </div>
+
+      <div id="panel-analysis">
+        <div id="emptyState" class="panel empty">Run an analysis to populate the dashboard.</div>
+        <div id="analyzingState" class="panel empty hidden">Analyzing your code...</div>
+        <div id="errorState" class="panel empty hidden">
+          <div>Analysis failed.</div>
+          <div id="errorMsg" class="mono" style="margin-top:8px"></div>
+        </div>
+        <div id="resultsView" class="hidden">
+          <div id="fileInfo" class="panel"></div>
+          <div id="statsGrid" class="stats"></div>
+          <div class="panel">
+            <div class="filters" id="filterRow"></div>
+            <div class="filters" id="sortRow" style="margin-top:10px"></div>
+          </div>
+          <div class="panel">
+            <div id="symbolList" class="symbol-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="panel-history" class="hidden">
+        <div class="panel">
+          <div id="historyList"></div>
+          <div id="historyEmpty" class="empty">No history yet.</div>
+        </div>
+      </div>
+
+      <div id="panel-chat" class="hidden">
+        <div class="panel">
+          <div id="chatMessages"></div>
+          <div class="chat-input-row">
+            <input id="chatInput" placeholder="Ask about the current analysis" onkeydown="if(event.key==='Enter'){sendChat()}" />
+            <button id="chatSendBtn" class="primary" onclick="sendChat()">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const vscode = acquireVsCodeApi();
+      const state = {
+        activeTab: "analysis",
+        result: null,
+        filter: "all",
+        sort: "confidence",
+        chatWaiting: false,
+      };
+
+      const SEV_COLORS = {
+        danger: "var(--danger)",
+        warning: "var(--warning)",
+        review: "var(--review)",
+        safe: "var(--safe)",
+      };
+
+      function switchTab(tab) {
+        state.activeTab = tab;
+        for (const name of ["analysis", "history", "chat"]) {
+          document.getElementById("tab-" + name).classList.toggle("active", name === tab);
+          document.getElementById("panel-" + name).classList.toggle("hidden", name !== tab);
+        }
+        if (tab === "history") {
+          vscode.postMessage({ type: "fetchHistory" });
+        }
+      }
+
+      function analyzeCurrent() {
+        vscode.postMessage({ type: "analyze" });
+      }
+
+      function analyzeWorkspace() {
+        vscode.postMessage({ type: "analyzeWorkspace" });
+      }
+
+      function jump(line) {
+        vscode.postMessage({ type: "jumpToLine", line });
+      }
+
+      function removeSymbol(name, startLine, endLine) {
+        vscode.postMessage({ type: "removeSymbol", symbolName: name, startLine, endLine });
+      }
+
+      function showState(name) {
+        document.getElementById("emptyState").classList.toggle("hidden", name !== "empty");
+        document.getElementById("analyzingState").classList.toggle("hidden", name !== "analyzing");
+        document.getElementById("errorState").classList.toggle("hidden", name !== "error");
+        document.getElementById("resultsView").classList.toggle("hidden", name !== "results");
+      }
+
+      function showResult(result) {
+        state.result = result;
+        state.filter = "all";
+        state.sort = "confidence";
+        showState("results");
+        switchTab("analysis");
+        renderAll();
+      }
+
+      function showHistory(items) {
+        const list = document.getElementById("historyList");
+        const empty = document.getElementById("historyEmpty");
+        if (!items || items.length === 0) {
+          list.innerHTML = "";
+          empty.classList.remove("hidden");
+          return;
+        }
+        empty.classList.add("hidden");
+        list.innerHTML = items.map((item) => `
+          <div class="history-item">
+            <div><strong>Session #${item.id}</strong></div>
+            <div class="meta">${esc(item.project_path || "Unknown project")}</div>
+            <div class="meta">${esc(new Date(item.timestamp).toLocaleString())} · ${item.total_files || 0} file(s)</div>
+          </div>
+        `).join("");
+      }
+
+      function renderAll() {
+        const result = state.result;
+        if (!result) return;
+
+        document.getElementById("headerSub").textContent =
+          `${result.filename} · ${result.language} · ${result.durationMs}ms`;
+
+        document.getElementById("fileInfo").innerHTML = `
+          <div><strong>${esc(result.filename)}</strong></div>
+          <div class="meta">${esc(result.fileUri)}</div>
+          <div class="meta">Analyzed at ${esc(new Date(result.analyzedAt).toLocaleString())}</div>
+        `;
+
+        const stats = [
+          ["Total", result.totalSymbols, "var(--text)"],
+          ["Danger", result.dangerCount, "var(--danger)"],
+          ["Warning", result.warningCount, "var(--warning)"],
+          ["Review", result.reviewCount, "var(--review)"],
+          ["Safe", result.safeCount, "var(--safe)"],
+        ];
+        document.getElementById("statsGrid").innerHTML = stats.map(([label, value, color]) => `
+          <div class="stat">
+            <div class="label">${label}</div>
+            <div class="value" style="color:${color}">${value}</div>
+          </div>
+        `).join("");
+
+        renderFilters();
+        renderSort();
+        renderSymbols();
+      }
+
+      function renderFilters() {
+        const result = state.result;
+        const counts = {
+          all: result.totalSymbols,
+          danger: result.dangerCount,
+          warning: result.warningCount,
+          review: result.reviewCount,
+          safe: result.safeCount,
+        };
+        document.getElementById("filterRow").innerHTML = ["all", "danger", "warning", "review", "safe"].map((key) => `
+          <button class="${state.filter === key ? "active" : ""}" onclick="setFilter('${key}')">
+            ${key[0].toUpperCase() + key.slice(1)} (${counts[key]})
+          </button>
+        `).join("");
+      }
+
+      function renderSort() {
+        document.getElementById("sortRow").innerHTML = ["confidence", "name", "line"].map((key) => `
+          <button class="${state.sort === key ? "active" : ""}" onclick="setSort('${key}')">
+            Sort: ${key}
+          </button>
+        `).join("");
+      }
+
+      function setFilter(filter) {
+        state.filter = filter;
+        renderFilters();
+        renderSymbols();
+      }
+
+      function setSort(sort) {
+        state.sort = sort;
+        renderSort();
+        renderSymbols();
+      }
+
+      function renderSymbols() {
+        const result = state.result;
+        let symbols = result.symbols.filter((symbol) => state.filter === "all" || symbol.severity === state.filter);
+        symbols = symbols.slice().sort((a, b) => {
+          if (state.sort === "name") return a.name.localeCompare(b.name);
+          if (state.sort === "line") return a.startLine - b.startLine;
+          return b.confidence - a.confidence;
+        });
+
+        const list = document.getElementById("symbolList");
+        if (!symbols.length) {
+          list.innerHTML = `<div class="empty">No symbols match this filter.</div>`;
+          return;
+        }
+
+        list.innerHTML = symbols.map((symbol) => renderSymbol(symbol)).join("");
+      }
+
+      function renderSymbol(symbol) {
+        const deadPct = Math.round(symbol.confidence * 100);
+        const alivePct = Math.round((1 - symbol.confidence) * 100);
+        const xai = symbol.xai_explanation || {};
+        const deepseek = symbol.deepseek_analysis || {};
+        const factors = Array.isArray(xai.factors) ? xai.factors : [];
+        const canRemove = symbol.confidence >= 0.55;
+        const llmReasoning =
+          xai.llm_reasoning ||
+          deepseek.reasoning ||
+          "LLM reasoning unavailable. The analyzer is showing ML-only output.";
+
+        return `
+          <div class="symbol ${symbol.severity}">
+            <div class="symbol-head">
+              <div class="symbol-name">${esc(symbol.name)}</div>
+              <div class="pill">${esc(symbol.kind)}</div>
+              <div class="pill">${esc(symbol.severity)}</div>
+              ${xai.risk_level ? `<div class="pill">${esc(xai.risk_level)} risk</div>` : ""}
+              <a class="linklike" onclick="jump(${symbol.startLine})">Line ${symbol.startLine}</a>
+            </div>
+            <div class="summary">${esc(xai.summary || symbol.summary)}</div>
+            <div class="meta">${esc(symbol.snippet || "")}</div>
+            <div class="bar"><div class="fill" style="width:${deadPct}%;background:${SEV_COLORS[symbol.severity]}"></div></div>
+            <div class="meta">${alivePct}% alive</div>
+            <div class="detail-grid">
+              <div class="detail-box">
+                <h4>Dead Signals</h4>
+                <ul>${(symbol.reasonsDead || []).map((item) => `<li>${esc(item)}</li>`).join("") || "<li>None</li>"}</ul>
+              </div>
+              <div class="detail-box">
+                <h4>Active Signals</h4>
+                <ul>${(symbol.reasonsAlive || []).map((item) => `<li>${esc(item)}</li>`).join("") || "<li>None</li>"}</ul>
+              </div>
+              <div class="detail-box">
+                <h4>XAI Explanation</h4>
+                <div>${esc(xai.confidence_explanation || symbol.explanation || "No explanation available.")}</div>
+                ${xai.recommendation ? `<div class="meta" style="margin-top:8px">Recommendation: ${esc(xai.recommendation)}</div>` : ""}
+                ${xai.action ? `<div class="meta">Action: ${esc(xai.action)}</div>` : ""}
+              </div>
+              <div class="detail-box">
+                <h4>LLM / DeepSeek</h4>
+                <div>${esc(llmReasoning)}</div>
+                ${deepseek.reasoning && deepseek.reasoning !== llmReasoning ? `<div class="meta" style="margin-top:8px">${esc(deepseek.reasoning)}</div>` : ""}
+              </div>
+            </div>
+            ${factors.length ? `
+              <div class="detail-box" style="margin-top:12px">
+                <h4>Key Factors</h4>
+                <ul>${factors.map((factor) => `<li><strong>${esc(factor.feature)}</strong>: ${esc(factor.description)} (${esc(factor.impact)})</li>`).join("")}</ul>
+              </div>
+            ` : ""}
+            ${canRemove ? `<div style="margin-top:12px"><button onclick="removeSymbol('${jsEsc(symbol.name)}', ${symbol.startLine}, ${symbol.endLine})">Remove Dead Code</button></div>` : ""}
+          </div>
+        `;
+      }
+
+      function sendChat() {
+        if (state.chatWaiting) return;
+        const input = document.getElementById("chatInput");
+        const query = input.value.trim();
+        if (!query) return;
+
+        input.value = "";
+        state.chatWaiting = true;
+        document.getElementById("chatSendBtn").disabled = true;
+        document.getElementById("chatMessages").innerHTML += `<div class="chat-bubble user">${esc(query)}</div>`;
+        vscode.postMessage({
+          type: "chatMessage",
+          query,
+          contextFile: state.result ? state.result.filename : "",
+        });
+      }
+
+      function addChatResponse(query, response) {
+        state.chatWaiting = false;
+        document.getElementById("chatSendBtn").disabled = false;
+        document.getElementById("chatMessages").innerHTML += `<div class="chat-bubble">${simpleMarkdown(response)}</div>`;
+      }
+
+      function simpleMarkdown(text) {
+        return esc(text)
+          .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+          .replace(/`(.+?)`/g, "<code>$1</code>")
+          .replace(/\n/g, "<br>");
+      }
+
+      function esc(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function jsEsc(value) {
+        return String(value ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+      }
+
+      window.addEventListener("message", (event) => {
+        const msg = event.data;
+        if (msg.type === "result") showResult(msg.data);
+        if (msg.type === "analyzing") showState("analyzing");
+        if (msg.type === "error") {
+          showState("error");
+          document.getElementById("errorMsg").textContent = msg.message || "";
+        }
+        if (msg.type === "history") showHistory(msg.data);
+        if (msg.type === "openChat") switchTab("chat");
+        if (msg.type === "chatResponse") addChatResponse(msg.query, msg.response);
+      });
+    </script>
+  </body>
+</html>
